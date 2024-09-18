@@ -342,10 +342,17 @@ static blk_qc_t brd_submit_bio(struct bio *bio)
 	sector_t sector = bio->bi_iter.bi_sector;
 	struct bio_vec bvec;
 	struct bvec_iter iter;
+  int err = -EIO;
+
+  if (unlikely(bio_op(bio) == BIO_DISCARD_FLAG)) {
+    err = 0;
+    discard_from_brd(brd, sector, bio->BI_SIZE);
+    goto out;
+  }
+
 
 	bio_for_each_segment(bvec, bio, iter) {
 		unsigned int len = bvec.bv_len;
-		int err;
 
 		/* Don't support un-aligned buffer */
 		WARN_ON_ONCE((bvec.bv_offset & (SECTOR_SIZE - 1)) ||
@@ -358,6 +365,7 @@ static blk_qc_t brd_submit_bio(struct bio *bio)
 		sector += len >> SECTOR_SHIFT;
 	}
 
+out:
 	bio_endio(bio);
 	return BLK_QC_T_NONE;
 io_error:
@@ -442,6 +450,7 @@ static int brd_rw_page(struct block_device *bdev, sector_t sector,
 
 static const struct block_device_operations brd_fops = {
 	.owner =		THIS_MODULE,
+  .ioctl = brd_ioctl,
 	.submit_bio =		brd_submit_bio,
 	.rw_page =		brd_rw_page,
 #ifdef CONFIG_BLK_DEV_XIP
@@ -568,13 +577,6 @@ out_free_dev:
 	return err;
 }
 
-static void brd_free(struct brd_device *brd)
-{
-  put_disk(brd->brd_disk);
-  blk_cleanup_queue(brd->brd_disk->queue);
-  brd_free_pages(brd);
-  kfree(brd);
-}
 
 /*
 static struct brd_device *brd_init_one(int i)

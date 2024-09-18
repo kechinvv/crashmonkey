@@ -45,6 +45,8 @@ struct disk_write_op {
   struct disk_write_op* next;
 };
 
+
+
 static int major_num = 0;
 
 static struct hwm_device {
@@ -244,11 +246,6 @@ static int disk_wrapper_ioctl(struct block_device* bdev, fmode_t mode,
   return ret;
 }
 
-// The device operations structure.
-static const struct block_device_operations disk_wrapper_ops = {
-  .owner   = THIS_MODULE,
-  .ioctl   = disk_wrapper_ioctl,
-};
 
 /*
  * Converts from kernel specific flags to flags that CrashMonkey uses.
@@ -846,10 +843,14 @@ static blk_qc_t disk_wrapper_bio(struct bio* bio) {
 #endif
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
-    struct request_queue* (*blk_alloc_queue)(int) = (struct request_queue* (*)(int)) 0xffffffff87692b50;
-#endif
+
+// The device operations structure.
+static const struct block_device_operations disk_wrapper_ops = {
+  .owner   = THIS_MODULE,
+  .ioctl   = disk_wrapper_ioctl,
+  .submit_bio =		disk_wrapper_bio
+};
+
 
 
 // TODO(ashmrtn): Fix error when wrong device path is passed.
@@ -1021,7 +1022,6 @@ static int __init disk_wrapper_init(void) {
 // Get a request queue.
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
     LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
-  Device.gd->queue = blk_alloc_queue(NUMA_NO_NODE);
 #else
   Device.gd->queue = blk_alloc_queue(GFP_KERNEL);
 
@@ -1041,10 +1041,15 @@ static int __init disk_wrapper_init(void) {
     LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0))
   Device.gd->queue->flush_flags = flush_flags;
 #endif
+//#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
+//    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0) 
+//  blk_queue_flag_set(queue_flags, Device.gd->queue);
+// #else
   Device.gd->queue->queue_flags = queue_flags;
   Device.gd->queue->queuedata = &Device;
   printk(KERN_INFO "hwm: working with queue with:\n\tflags 0x%lx\n",
       Device.gd->queue->queue_flags);
+// #endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0) && \
     LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)) || \
   (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0) && \
