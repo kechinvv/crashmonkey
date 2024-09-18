@@ -63,7 +63,9 @@
   (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0)       \
   && LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 3)) || \
   (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)       \
-  && LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 7))
+  && LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 7)) || \
+  (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)       \
+  && LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0))
 
 #define BI_RW                   bi_opf
 #define BI_DISK                 bi_disk
