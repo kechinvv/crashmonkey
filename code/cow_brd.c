@@ -46,6 +46,7 @@
  */
 struct brd_device {
 	int			brd_number;
+	struct brd_device *parent_brd;
 	struct gendisk		*brd_disk;
 	struct list_head	brd_list;
 
@@ -461,6 +462,12 @@ static const struct block_device_operations brd_fops = {
 /*
  * And now the modules code and kernel interface.
  */
+
+int major_num = 0;
+static int num_disks = 1;
+static int num_snapshots = 1;
+int disk_size = DEFAULT_COW_RD_SIZE;
+
 static int rd_nr = CONFIG_BLK_DEV_RAM_COUNT;
 module_param(rd_nr, int, 0444);
 MODULE_PARM_DESC(rd_nr, "Maximum number of brd devices");
@@ -470,6 +477,7 @@ module_param(rd_size, ulong, 0444);
 MODULE_PARM_DESC(rd_size, "Size of each RAM disk in kbytes.");
 
 static int max_part = 1;
+static int part_shift;
 module_param(max_part, int, 0444);
 MODULE_PARM_DESC(max_part, "Num Minors to reserve between devices");
 
@@ -477,6 +485,13 @@ MODULE_LICENSE("GPL");
 MODULE_ALIAS_BLOCKDEV_MAJOR(RAMDISK_MAJOR);
 MODULE_ALIAS("rd");
 
+module_param(num_disks, int, S_IRUGO);
+MODULE_PARM_DESC(num_disks, "Maximum number of ram block devices");
+module_param(num_snapshots, int, S_IRUGO);
+MODULE_PARM_DESC(num_snapshots, "Number of ram block snapshot devices where "
+    "each disk gets it's own snapshot");
+module_param(disk_size, int, S_IRUGO);
+MODULE_PARM_DESC(disk_size, "Size of each RAM disk in kbytes.");
 
 #ifndef MODULE
 /* Legacy boot options - nonmodular */
@@ -647,9 +662,16 @@ static void brd_del_one(struct brd_device *brd)
 
 static int __init brd_init(void)
 {
-	struct brd_device *brd, *next;
+	struct brd_device *brd, *next, *parent_brd;
 	int err, i;
+	const int nr = num_disks * (1 + num_snapshots);
+  	unsigned long range;
 
+	major_num = register_blkdev(major_num, DEVICE_NAME);
+  if (major_num <= 0) {
+    printk(KERN_WARNING DEVICE_NAME ": unable to get major number\n");
+    return -EIO;
+  }
 	/*
 	 * brd module now has a feature to instantiate underlying device
 	 * structure on-demand, provided that there is an access dev node.
@@ -665,30 +687,58 @@ static int __init brd_init(void)
 	 *	dynamically.
 	 */
 
-	if (__register_blkdev(RAMDISK_MAJOR, "ramdisk", brd_probe))
+
+
+  range = nr << part_shift;
+
+  // The first num_disks devices are the actual disks, the rest are snapshot
+  // devices.
+  for (i = 0; i < nr; i++) {
+    brd = brd_alloc(i);
+    if (!brd) {
+      goto out_free;
+    }
+    list_add_tail(&brd->brd_list, &brd_devices);
+
+    // Set the parent pointer for this device.
+    if (i >= num_disks) {
+      list_for_each_entry(parent_brd, &brd_devices, brd_list) {
+        if (parent_brd->brd_number == i % num_disks) {
+          brd->parent_brd = parent_brd;
+          break;
+        }
+      }
+    } else {
+      brd->parent_brd = NULL;
+    }
+  }
+
+  /* point of no return */
+
+  list_for_each_entry(brd, &brd_devices, brd_list)
+    add_disk(brd->brd_disk);
+
+
+	if (__register_blkdev(RAMDISK_MAJOR, DEVICE_NAME, brd_probe))
 		return -EIO;
 
 	brd_check_and_reset_par();
 
-	brd_debugfs_dir = debugfs_create_dir("ramdisk_pages", NULL);
+	brd_debugfs_dir = debugfs_create_dir(DEVICE_NAME"_pages", NULL);
 
-	for (i = 0; i < rd_nr; i++) {
-		err = brd_alloc(i);
-		if (err)
-			goto out_free;
-	}
+	printk(KERN_INFO DEVICE_NAME ": module loaded with %d disks and %d snapshots"
+		"\n", num_disks, num_disks * num_snapshots);
 
-	pr_info("brd: module loaded\n");
 	return 0;
 
 out_free:
-	unregister_blkdev(RAMDISK_MAJOR, "ramdisk");
+	unregister_blkdev(RAMDISK_MAJOR, DEVICE_NAME);
 	debugfs_remove_recursive(brd_debugfs_dir);
 
 	list_for_each_entry_safe(brd, next, &brd_devices, brd_list)
 		brd_del_one(brd);
 
-	pr_info("brd: module NOT loaded !!!\n");
+	pr_info(DEVICE_NAME": module NOT loaded !!!\n");
 	return err;
 }
 
@@ -696,13 +746,13 @@ static void __exit brd_exit(void)
 {
 	struct brd_device *brd, *next;
 
-	unregister_blkdev(RAMDISK_MAJOR, "ramdisk");
+	unregister_blkdev(RAMDISK_MAJOR, DEVICE_NAME);
 	debugfs_remove_recursive(brd_debugfs_dir);
 
 	list_for_each_entry_safe(brd, next, &brd_devices, brd_list)
 		brd_del_one(brd);
 
-	pr_info("brd: module unloaded\n");
+	pr_info(DEVICE_NAME": module unloaded\n");
 }
 
 module_init(brd_init);

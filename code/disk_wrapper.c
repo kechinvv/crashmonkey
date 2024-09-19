@@ -143,7 +143,7 @@ static int disk_wrapper_ioctl(struct block_device* bdev, fmode_t mode,
       Device.log_on = true;
       break;
     case HWM_GET_LOG_META:
-      //printk(KERN_INFO "hwm: getting next log entry meta\n");
+      printk(KERN_INFO "hwm: getting next log entry meta\n");
       if (Device.current_log_write == NULL) {
         printk(KERN_WARNING "hwm: no log entry here \n");
         return -ENODATA;
@@ -174,7 +174,7 @@ static int disk_wrapper_ioctl(struct block_device* bdev, fmode_t mode,
       }
       break;
     case HWM_GET_LOG_DATA:
-      //printk(KERN_INFO "hwm: getting log entry data\n");
+      printk(KERN_INFO "hwm: getting log entry data\n");
       if (Device.current_log_write == NULL) {
         printk(KERN_WARNING "hwm: no log entries to report data for\n");
         return -ENODATA;
@@ -205,7 +205,7 @@ static int disk_wrapper_ioctl(struct block_device* bdev, fmode_t mode,
       }
       break;
     case HWM_NEXT_ENT:
-      //printk(KERN_INFO "hwm: moving to next log entry\n");
+      printk(KERN_INFO "hwm: moving to next log entry\n");
       if (Device.current_log_write == NULL) {
         printk(KERN_WARNING "hwm: no next log entry\n");
         return -ENODATA;
@@ -710,11 +710,11 @@ static blk_qc_t disk_wrapper_bio(struct bio* bio) {
   struct hwm_device* hwm;
   ktime_t curr_time;
 
-  /*
+
   printk(KERN_INFO "hwm: bio rw of size %u headed for 0x%lx (sector 0x%lx)"
       " has flags:\n", bio->BI_SIZE, bio->BI_SECTOR * 512, bio->BI_SECTOR);
   print_rw_flags(bio->BI_RW, bio->bi_flags);
-  */
+
   // Log information about writes, fua, and flush/flush_seq events in kernel
   // memory.
   if (Device.log_on && should_log(bio)) {
@@ -768,7 +768,7 @@ static blk_qc_t disk_wrapper_bio(struct bio* bio) {
     struct bio_vec *vec;
     int iter;
     bio_for_each_segment(vec, bio, iter) {
-      //printk(KERN_INFO "hwm: making new page for segment of data\n");
+      printk(KERN_INFO "hwm: making new page for segment of data\n");
 
       void *bio_data = kmap(vec->bv_page);
       memcpy((void*) (write->data + copied_data), bio_data + vec->bv_offset,
@@ -780,7 +780,7 @@ static blk_qc_t disk_wrapper_bio(struct bio* bio) {
     struct bio_vec vec;
     struct bvec_iter iter;
     bio_for_each_segment(vec, bio, iter) {
-      //printk(KERN_INFO "hwm: making new page for segment of data\n");
+      printk(KERN_INFO "hwm: making new page for segment of data\n");
 
       void *bio_data = kmap(vec.bv_page);
       memcpy((void*) (write->data + copied_data), bio_data + vec.bv_offset,
@@ -790,12 +790,12 @@ static blk_qc_t disk_wrapper_bio(struct bio* bio) {
     }
     #endif
     // Sanity check which prints data copied to the log.
-    /*
+
     printk(KERN_INFO "hwm: copied %ld bytes of from %lx data:"
         "\n~~~\n%s\n~~~\n",
         write->metadata.size, write->metadata.write_sector * 512,
         write->data);
-    */
+    
   }
 
  passthrough:
