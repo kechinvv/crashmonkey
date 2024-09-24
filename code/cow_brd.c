@@ -538,46 +538,83 @@ static struct brd_device *brd_alloc(int i)
 	struct gendisk *disk;
 	char buf[DISK_NAME_LEN];
 	int err = -ENOMEM;
+	printk(KERN_WARNING DEVICE_NAME ": alloc start for brd number %d\n", i);
 
 	mutex_lock(&brd_devices_mutex);
+
+	printk(KERN_WARNING DEVICE_NAME ": mutex_lock(&brd_devices_mutex);");
+
 	list_for_each_entry(brd, &brd_devices, brd_list) {
+		printk(KERN_WARNING DEVICE_NAME ": list_for_each_entry");
+
 		if (brd->brd_number == i) {
+			printk(KERN_WARNING DEVICE_NAME ": mutex_unlock -EXEXIST brd_number == %d", i);
+
 			mutex_unlock(&brd_devices_mutex);
+			printk(KERN_WARNING DEVICE_NAME ": mutex_unlocked");
+
 			return -EEXIST;
 		}
 	}
+	printk(KERN_WARNING DEVICE_NAME ": before kzalloc");
+
 	brd = kzalloc(sizeof(*brd), GFP_KERNEL);
+	printk(KERN_WARNING DEVICE_NAME ": after kzalloc");
+
 	if (!brd) {
+		printk(KERN_WARNING DEVICE_NAME ": mutex_unlock !brd");
 		mutex_unlock(&brd_devices_mutex);
+		printk(KERN_WARNING DEVICE_NAME ": mutex_unlocked");
 		return -ENOMEM;
 	}
+	printk(KERN_WARNING DEVICE_NAME ": assigned brd fields");
+
 	brd->brd_number		= i;
 	  // True on disks until "snapshot" ioctl is called.
-  brd->is_writable  = true;
-  brd->is_snapshot  = i >= num_disks;
+    brd->is_writable  = true;
+    brd->is_snapshot  = i >= num_disks;
   
+	printk(KERN_WARNING DEVICE_NAME ": 	list_add_tail(&brd->brd_list, &brd_devices);");
+
 	list_add_tail(&brd->brd_list, &brd_devices);
+
+	printk(KERN_WARNING DEVICE_NAME ": 	unconditional unlock mutex");
+
 	mutex_unlock(&brd_devices_mutex);
 
+	printk(KERN_WARNING DEVICE_NAME ": 	spin_lock_init");
 	spin_lock_init(&brd->brd_lock);
+
+	printk(KERN_WARNING DEVICE_NAME ": 	INIT_RADIX_TREE");
 	INIT_RADIX_TREE(&brd->brd_pages, GFP_ATOMIC);
 
-	snprintf(buf, DISK_NAME_LEN, "ram%d", i);
-	if (!IS_ERR_OR_NULL(brd_debugfs_dir))
-		debugfs_create_u64(buf, 0444, brd_debugfs_dir,
-				&brd->brd_nr_pages);
+	printk(KERN_WARNING DEVICE_NAME  "buf %c DISK_NAME_LEN%d ram%d", buf, DISK_NAME_LEN, i);
+	printk(KERN_WARNING DEVICE_NAME ": 	IS_ERR_OR_NULL");
 
+	if (!IS_ERR_OR_NULL(brd_debugfs_dir)) {
+		printk(KERN_WARNING DEVICE_NAME ": 	debugfs_create_u64");
+		debugfs_create_u64(buf, 0444, brd_debugfs_dir, &brd->brd_nr_pages);
+	}
+
+	printk(KERN_WARNING DEVICE_NAME ": 	blk_alloc_disk %d", 1<<part_shift);
 	disk = brd->brd_disk = blk_alloc_disk(1 << part_shift);
-	if (!disk)
+	if (!disk) {
+		printk(KERN_WARNING DEVICE_NAME ": 	goto out_free_dev;");
 		goto out_free_dev;
-
+	}
+	
+	printk(KERN_WARNING DEVICE_NAME ": 	assign disk fields;");
 	disk->major		= major_num;
 	disk->first_minor	= 1 << part_shift;
 	disk->minors		= max_part;
 	disk->fops		= &brd_fops;
 	disk->private_data	= brd;
 	disk->flags		= GENHD_FL_EXT_DEVT;
+
+	printk(KERN_WARNING DEVICE_NAME ": 	strlcpy;");
 	strlcpy(disk->disk_name, buf, DISK_NAME_LEN);
+
+	printk(KERN_WARNING DEVICE_NAME ": 	set_capacity;");
 	set_capacity(disk, rd_size * 2);
 	
 	/*
@@ -587,12 +624,17 @@ static struct brd_device *brd_alloc(int i)
 	 *  otherwise fdisk will align on 1M. Regardless this call
 	 *  is harmless)
 	 */
+	printk(KERN_WARNING DEVICE_NAME ": 	blk_queue_physical_block_size;");
 	blk_queue_physical_block_size(disk->queue, PAGE_SIZE);
 
 	/* Tell the block layer that this is not a rotational device */
+	printk(KERN_WARNING DEVICE_NAME ": 	blk_queue_flag_set; QUEUE_FLAG_NONROT");
 	blk_queue_flag_set(QUEUE_FLAG_NONROT, disk->queue);
+	printk(KERN_WARNING DEVICE_NAME ": 	blk_queue_flag_clear; QUEUE_FLAG_ADD_RANDOM");
 	blk_queue_flag_clear(QUEUE_FLAG_ADD_RANDOM, disk->queue);
+	printk(KERN_WARNING DEVICE_NAME ": 	blk_queue_flag_set QUEUE_FLAG_NOWAIT;");
 	blk_queue_flag_set(QUEUE_FLAG_NOWAIT, disk->queue);
+	printk(KERN_WARNING DEVICE_NAME ": 	add_disk;");
 	err = add_disk(disk);
 	printk(KERN_INFO DEVICE_NAME " brd alloc error %d", err);
 
@@ -602,12 +644,19 @@ static struct brd_device *brd_alloc(int i)
 	return brd;
 
 out_cleanup_disk:
+	printk(KERN_WARNING DEVICE_NAME ": 	inside out_cleanup_disk;");
 	blk_cleanup_disk(disk);
+	printk(KERN_WARNING DEVICE_NAME ": 	blk_cleanup_disk;");
 out_free_dev:
+	printk(KERN_WARNING DEVICE_NAME ": 	inside out_free_dev; mutex lock;");
 	mutex_lock(&brd_devices_mutex);
+	printk(KERN_WARNING DEVICE_NAME ": 	inside list_del;");
 	list_del(&brd->brd_list);
+	printk(KERN_WARNING DEVICE_NAME ": 	mutex_unlock;");
 	mutex_unlock(&brd_devices_mutex);
+	printk(KERN_WARNING DEVICE_NAME ": 	kfree;");
 	kfree(brd);
+	printk(KERN_WARNING DEVICE_NAME ": 	NULL;");
 	return NULL;
 }
 
@@ -711,57 +760,59 @@ static int __init brd_init(void)
 	 */
 
 
+	part_shift = 0;
+	if (max_part > 0) {
+		part_shift = fls(max_part);
 
-  range = nr << part_shift;
-    if (max_part > 0) {
-    part_shift = fls(max_part);
+		/*
+		* Adjust max_part according to part_shift as it is exported
+		* to user space so that user can decide correct minor number
+		* if [s]he want to create more devices.
+		*
+		* Note that -1 is required because partition 0 is reserved
+		* for the whole disk.
+		*/
+		max_part = (1UL << part_shift) - 1;
+	}
 
-    /*
-     * Adjust max_part according to part_shift as it is exported
-     * to user space so that user can decide correct minor number
-     * if [s]he want to create more devices.
-     *
-     * Note that -1 is required because partition 0 is reserved
-     * for the whole disk.
-     */
-    max_part = (1UL << part_shift) - 1;
-  }
+	if ((1UL << part_shift) > DISK_MAX_PARTS) {
+		return -EINVAL;
+	}
 
-  if ((1UL << part_shift) > DISK_MAX_PARTS) {
-    return -EINVAL;
-  }
+	if (nr > 1UL << (MINORBITS - part_shift)) {
+		return -EINVAL;
+	}
 
-  if (nr > 1UL << (MINORBITS - part_shift)) {
-    return -EINVAL;
-  }
+	range = nr << part_shift;
 
-  // The first num_disks devices are the actual disks, the rest are snapshot
-  // devices.
-  for (i = 0; i < nr; i++) {
-	printk(KERN_WARNING DEVICE_NAME ": alloc i: %d\n", i);
-    brd = brd_alloc(i);
-	printk(KERN_WARNING DEVICE_NAME ": alloc done\n");
 
-    if (!brd) {
-      goto out_free;
-    }
-	printk(KERN_WARNING DEVICE_NAME ": wthout error\n");
+	// The first num_disks devices are the actual disks, the rest are snapshot
+	// devices.
+	for (i = 0; i < nr; i++) {
+		printk(KERN_WARNING DEVICE_NAME ": alloc i: %d\n", i);
+		brd = brd_alloc(i);
+		printk(KERN_WARNING DEVICE_NAME ": alloc done\n");
 
-    list_add_tail(&brd->brd_list, &brd_devices);
-	printk(KERN_WARNING DEVICE_NAME ": list_add_tail\n");
+		if (!brd) {
+		goto out_free;
+		}
+		printk(KERN_WARNING DEVICE_NAME ": wthout error\n");
 
-    // Set the parent pointer for this device.
-    if (i >= num_disks) {
-      list_for_each_entry(parent_brd, &brd_devices, brd_list) {
-        if (parent_brd->brd_number == i % num_disks) {
-          brd->parent_brd = parent_brd;
-          break;
-        }
-      }
-    } else {
-      brd->parent_brd = NULL;
-    }
-  }
+		list_add_tail(&brd->brd_list, &brd_devices);
+		printk(KERN_WARNING DEVICE_NAME ": list_add_tail\n");
+
+		// Set the parent pointer for this device.
+		if (i >= num_disks) {
+		list_for_each_entry(parent_brd, &brd_devices, brd_list) {
+			if (parent_brd->brd_number == i % num_disks) {
+			brd->parent_brd = parent_brd;
+			break;
+			}
+		}
+		} else {
+		brd->parent_brd = NULL;
+		}
+	}
   	printk(KERN_WARNING DEVICE_NAME ": parent_brd assign\n");
 
 
