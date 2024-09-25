@@ -532,13 +532,14 @@ static LIST_HEAD(brd_devices);
 static DEFINE_MUTEX(brd_devices_mutex);
 static struct dentry *brd_debugfs_dir;
 
-static struct brd_device *brd_alloc(int i)
+static int brd_alloc(int i)
 {
-	struct brd_device *brd;
+	struct brd_device *brd, *parent_brd;
 	struct gendisk *disk;
 	char buf[DISK_NAME_LEN];
 	int err = -ENOMEM;
 	printk(KERN_WARNING DEVICE_NAME ": alloc start for brd number %d\n", i);
+
 
 	mutex_lock(&brd_devices_mutex);
 
@@ -609,13 +610,29 @@ static struct brd_device *brd_alloc(int i)
 	disk->minors		= max_part;
 	disk->fops		= &brd_fops;
 	disk->private_data	= brd;
-	disk->flags		= GENHD_FL_EXT_DEVT;
-
+	// disk->flags		= GENHD_FL_EXT_DEVT;
+    disk->flags |= GENHD_FL_SUPPRESS_PARTITION_INFO;
+	if (brd->is_snapshot) {
+    	sprintf(disk->disk_name, "cow_ram_snapshot%d_%d", i / num_disks, i % num_disks);
+  	} else {
+    	sprintf(disk->disk_name, "cow_ram%d", i);
+  	}
 	printk(KERN_WARNING DEVICE_NAME ": 	strlcpy;");
-	strlcpy(disk->disk_name, buf, DISK_NAME_LEN);
+//	strlcpy(disk->disk_name, buf, DISK_NAME_LEN);
 
 	printk(KERN_WARNING DEVICE_NAME ": 	set_capacity;");
-	set_capacity(disk, rd_size * 2);
+	set_capacity(disk, disk_size * 2);
+
+	if (i >= num_disks) {
+		list_for_each_entry(parent_brd, &brd_devices, brd_list) {
+			if (parent_brd->brd_number == i % num_disks) {
+			brd->parent_brd = parent_brd;
+			break;
+			}
+		}
+	} else {
+		brd->parent_brd = NULL;
+	}
 	
 	/*
 	 * This is so fdisk will align partitions on 4k, because of
@@ -790,38 +807,21 @@ static int __init brd_init(void)
 	// devices.
 	for (i = 0; i < nr; i++) {
 		printk(KERN_WARNING DEVICE_NAME ": alloc i: %d\n", i);
-		brd = brd_alloc(i);
+		err = brd_alloc(i);
+		if (err) {
+			printk(KERN_WARNING DEVICE_NAME ": err alloc\n");
+			goto out_free;
+		}
 		printk(KERN_WARNING DEVICE_NAME ": alloc done\n");
-
-		if (!brd) {
-		goto out_free;
-		}
-		printk(KERN_WARNING DEVICE_NAME ": wthout error\n");
-
-		list_add_tail(&brd->brd_list, &brd_devices);
-		printk(KERN_WARNING DEVICE_NAME ": list_add_tail\n");
-
-		// Set the parent pointer for this device.
-		if (i >= num_disks) {
-		list_for_each_entry(parent_brd, &brd_devices, brd_list) {
-			if (parent_brd->brd_number == i % num_disks) {
-			brd->parent_brd = parent_brd;
-			break;
-			}
-		}
-		} else {
-		brd->parent_brd = NULL;
-		}
 	}
   	printk(KERN_WARNING DEVICE_NAME ": parent_brd assign\n");
 
 
   /* point of no return */
-
+	/*
     list_for_each_entry(brd, &brd_devices, brd_list)
         add_disk(brd->brd_disk);
-
-  	printk(KERN_WARNING DEVICE_NAME ": add_disk\n");
+	*/
 
 
 	if (__register_blkdev(RAMDISK_MAJOR, DEVICE_NAME, brd_probe))
