@@ -8,7 +8,9 @@
  * of their respective owners.
  */
 
+
 #include <linux/init.h>
+#include <linux/initrd.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/major.h>
@@ -16,14 +18,15 @@
 #include <linux/bio.h>
 #include <linux/highmem.h>
 #include <linux/mutex.h>
+#include <linux/pagemap.h>
 #include <linux/radix-tree.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
-#include <linux/blk-mq.h>
-#include <linux/numa.h>
-#include <linux/pagemap.h>
+#include <linux/backing-dev.h>
 #include <linux/debugfs.h>
-#include <asm/uaccess.h>
+
+#include <linux/uaccess.h>
+
 
 #include "disk_wrapper_ioctl.h"
 #include "bio_alias.h"
@@ -589,13 +592,9 @@ static int brd_alloc(int i)
 	printk(KERN_WARNING DEVICE_NAME ": 	INIT_RADIX_TREE");
 	INIT_RADIX_TREE(&brd->brd_pages, GFP_ATOMIC);
 
-	printk(KERN_WARNING DEVICE_NAME  "buf %c DISK_NAME_LEN%d ram%d", buf, DISK_NAME_LEN, i);
 	printk(KERN_WARNING DEVICE_NAME ": 	IS_ERR_OR_NULL");
 
-	if (!IS_ERR_OR_NULL(brd_debugfs_dir)) {
-		printk(KERN_WARNING DEVICE_NAME ": 	debugfs_create_u64");
-		debugfs_create_u64(buf, 0444, brd_debugfs_dir, &brd->brd_nr_pages);
-	}
+	
 
 	printk(KERN_WARNING DEVICE_NAME ": 	blk_alloc_disk %d", 1<<part_shift);
 	disk = brd->brd_disk = blk_alloc_disk(1 << part_shift);
@@ -612,13 +611,14 @@ static int brd_alloc(int i)
 	disk->private_data	= brd;
 	// disk->flags		= GENHD_FL_EXT_DEVT;
     disk->flags |= GENHD_FL_SUPPRESS_PARTITION_INFO;
+
+	printk(KERN_WARNING DEVICE_NAME ": 	snprintf;");
 	if (brd->is_snapshot) {
-    	sprintf(disk->disk_name, "cow_ram_snapshot%d_%d", i / num_disks, i % num_disks);
-  	} else {
-    	sprintf(disk->disk_name, "cow_ram%d", i);
-  	}
-	printk(KERN_WARNING DEVICE_NAME ": 	strlcpy;");
-//	strlcpy(disk->disk_name, buf, DISK_NAME_LEN);
+		sprintf(disk->disk_name, "cow_ram_snapshot%d_%d", i / num_disks,
+			i % num_disks);
+	} else {
+		sprintf(disk->disk_name, "cow_ram%d", i);
+	}
 
 	printk(KERN_WARNING DEVICE_NAME ": 	set_capacity;");
 	set_capacity(disk, disk_size * 2);
@@ -658,7 +658,7 @@ static int brd_alloc(int i)
 	if (err)
 		goto out_cleanup_disk;
 
-	return brd;
+	return 0;
 
 out_cleanup_disk:
 	printk(KERN_WARNING DEVICE_NAME ": 	inside out_cleanup_disk;");
@@ -674,7 +674,7 @@ out_free_dev:
 	printk(KERN_WARNING DEVICE_NAME ": 	kfree;");
 	kfree(brd);
 	printk(KERN_WARNING DEVICE_NAME ": 	NULL;");
-	return NULL;
+	return -ENOMEM;
 }
 
 
@@ -757,10 +757,10 @@ static int __init brd_init(void)
 	major_num = register_blkdev(major_num, DEVICE_NAME);
 	printk(KERN_WARNING DEVICE_NAME ": register_blkdev\n");
 
-  if (major_num <= 0) {
-    printk(KERN_WARNING DEVICE_NAME ": unable to get major number\n");
-    return -EIO;
-  }
+	if (major_num <= 0) {
+		printk(KERN_WARNING DEVICE_NAME ": unable to get major number\n");
+		return -EIO;
+	}
 	/*
 	 * brd module now has a feature to instantiate underlying device
 	 * structure on-demand, provided that there is an access dev node.
