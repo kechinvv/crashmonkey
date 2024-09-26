@@ -571,29 +571,23 @@ static int brd_alloc(int i)
 		printk(KERN_WARNING DEVICE_NAME ": mutex_unlocked");
 		return -ENOMEM;
 	}
-	printk(KERN_WARNING DEVICE_NAME ": assigned brd fields");
+	printk(KERN_WARNING DEVICE_NAME ": assigne brd fields");
 
 	brd->brd_number		= i;
 	  // True on disks until "snapshot" ioctl is called.
     brd->is_writable  = true;
     brd->is_snapshot  = i >= num_disks;
-  
+
+
 	printk(KERN_WARNING DEVICE_NAME ": 	list_add_tail(&brd->brd_list, &brd_devices);");
-
 	list_add_tail(&brd->brd_list, &brd_devices);
-
 	printk(KERN_WARNING DEVICE_NAME ": 	unconditional unlock mutex");
-
 	mutex_unlock(&brd_devices_mutex);
 
 	printk(KERN_WARNING DEVICE_NAME ": 	spin_lock_init");
 	spin_lock_init(&brd->brd_lock);
-
 	printk(KERN_WARNING DEVICE_NAME ": 	INIT_RADIX_TREE");
 	INIT_RADIX_TREE(&brd->brd_pages, GFP_ATOMIC);
-
-	printk(KERN_WARNING DEVICE_NAME ": 	IS_ERR_OR_NULL");
-
 	
 
 	printk(KERN_WARNING DEVICE_NAME ": 	blk_alloc_disk %d", 1<<part_shift);
@@ -606,7 +600,7 @@ static int brd_alloc(int i)
 	printk(KERN_WARNING DEVICE_NAME ": 	assign disk fields;");
 	disk->major		= major_num;
 	disk->first_minor	= 1 << part_shift;
-	disk->minors		= max_part;
+//	disk->minors		= max_part;
 	disk->fops		= &brd_fops;
 	disk->private_data	= brd;
 	// disk->flags		= GENHD_FL_EXT_DEVT;
@@ -619,6 +613,8 @@ static int brd_alloc(int i)
 	} else {
 		sprintf(disk->disk_name, "cow_ram%d", i);
 	}
+	printk(KERN_WARNING DEVICE_NAME ": 	disk_name %s;", disk->disk_name);
+
 
 	printk(KERN_WARNING DEVICE_NAME ": 	set_capacity;");
 	set_capacity(disk, disk_size * 2);
@@ -634,6 +630,12 @@ static int brd_alloc(int i)
 		brd->parent_brd = NULL;
 	}
 	
+    blk_queue_max_hw_sectors(disk->queue, 1024);
+  	blk_queue_bounce_limit(disk->queue, BLK_BOUNCE_HIGH);
+  	disk->queue->limits.discard_granularity = PAGE_SIZE;
+  	blk_queue_max_discard_sectors(disk->queue, UINT_MAX);
+	blk_queue_flag_set(QUEUE_FLAG_DISCARD, disk->queue);
+
 	/*
 	 * This is so fdisk will align partitions on 4k, because of
 	 * direct_access API needing 4k alignment, returning a PFN
