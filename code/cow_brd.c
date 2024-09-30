@@ -599,8 +599,8 @@ static int brd_alloc(int i)
 	
 	printk(KERN_WARNING DEVICE_NAME ": 	assign disk fields;");
 	disk->major		= major_num;
-	disk->first_minor	= 1 << part_shift;
-//	disk->minors		= max_part;
+	disk->first_minor	= i << part_shift;
+	disk->minors		= max_part;
 	disk->fops		= &brd_fops;
 	disk->private_data	= brd;
 	// disk->flags		= GENHD_FL_EXT_DEVT;
@@ -757,7 +757,7 @@ static int __init brd_init(void)
 	printk(KERN_INFO DEVICE_NAME " init");
 
 	major_num = register_blkdev(major_num, DEVICE_NAME);
-	printk(KERN_WARNING DEVICE_NAME ": register_blkdev\n");
+	printk(KERN_WARNING DEVICE_NAME ": register_blkdev %d\n", major_num);
 
 	if (major_num <= 0) {
 		printk(KERN_WARNING DEVICE_NAME ": unable to get major number\n");
