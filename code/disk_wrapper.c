@@ -55,35 +55,11 @@ static struct hwm_device {
   u8* data;
   struct gendisk* gd;
   bool log_on;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0))
-  struct block_device* target_dev;
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 17, 0) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 3)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 7))
+
   struct gendisk* target_dev;
   u8 target_partno;
   struct block_device* target_bd;
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
-  struct gendisk* target_dev;
-  u8 target_partno;
-  struct block_device* target_bd;
-#else
-#error "Unsupported kernel version: CrashMonkey has not been tested with " \
-  "your kernel version."
-#endif
+
   // Pointer to first write op in the chain.
   struct disk_write_op* writes;
   // Pointer to last write op in the chain.
@@ -148,17 +124,8 @@ static int disk_wrapper_ioctl(struct block_device* bdev, fmode_t mode,
         printk(KERN_WARNING "hwm: no log entry here \n");
         return -ENODATA;
       }
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0) && \
-      LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 3)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 7))
+
       if (!access_ok((void*) arg,
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
-      if (!access_ok((void*) arg,
-#else
-      if (!access_ok(VERIFY_WRITE, (void*) arg,
-#endif
             sizeof(struct disk_write_op_meta))) {
         // TODO(ashmrtn): Find right error code.
         printk(KERN_WARNING "hwm: bad user land memory pointer in log entry"
@@ -179,17 +146,8 @@ static int disk_wrapper_ioctl(struct block_device* bdev, fmode_t mode,
         printk(KERN_WARNING "hwm: no log entries to report data for\n");
         return -ENODATA;
       }
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0) && \
-      LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 3)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 7))
       if (!access_ok((void*) arg,
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
-      if (!access_ok((void*) arg,
-#else
-      if (!access_ok(VERIFY_WRITE, (void*) arg,
-#endif
+
             Device.current_log_write->metadata.size)) {
         // TODO(ashmrtn): Find right error code.
         return -EFAULT;
@@ -254,253 +212,6 @@ static int disk_wrapper_ioctl(struct block_device* bdev, fmode_t mode,
  */
 static unsigned long long convert_flags(unsigned long long flags) {
   unsigned long long res = 0;
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
-  // These flags are in both 3.13 and 4.4.
-  if (flags & REQ_WRITE) {
-    res |= HWM_WRITE_FLAG;
-  }
-  if (flags & REQ_FAILFAST_DEV) {
-    res |= HWM_FAILFAST_DEV_FLAG;
-  }
-  if (flags & REQ_FAILFAST_TRANSPORT) {
-    res |= HWM_FAILFAST_TRANSPORT_FLAG;
-  }
-  if (flags & REQ_FAILFAST_DRIVER) {
-    res |= HWM_FAILFAST_DRIVER_FLAG;
-  }
-  if (flags & REQ_SYNC) {
-    res |= HWM_SYNC_FLAG;
-  }
-  if (flags & REQ_META) {
-    res |= HWM_META_FLAG;
-  }
-  if (flags & REQ_PRIO) {
-    res |= HWM_PRIO_FLAG;
-  }
-  if (flags & REQ_DISCARD) {
-    res |= HWM_DISCARD_FLAG;
-  }
-  if (flags & REQ_SECURE) {
-    res |= HWM_SECURE_FLAG;
-  }
-  if (flags & REQ_WRITE_SAME) {
-    res |= HWM_WRITE_SAME_FLAG;
-  }
-  if (flags & REQ_NOIDLE) {
-    res |= HWM_NOIDLE_FLAG;
-  }
-  if (flags & REQ_FUA) {
-    res |= HWM_FUA_FLAG;
-  }
-  if (flags & REQ_FLUSH) {
-    res |= HWM_FLUSH_FLAG;
-  }
-  if (flags & REQ_RAHEAD) {
-    res |= HWM_READAHEAD_FLAG;
-  }
-  if (flags & REQ_THROTTLED) {
-    res |= HWM_THROTTLED_FLAG;
-  }
-  if (flags & REQ_SORTED) {
-    res |= HWM_SORTED_FLAG;
-  }
-  if (flags & REQ_SOFTBARRIER) {
-    res |= HWM_SOFTBARRIER_FLAG;
-  }
-  if (flags & REQ_NOMERGE) {
-    res |= HWM_NOMERGE_FLAG;
-  }
-  if (flags & REQ_STARTED) {
-    res |= HWM_STARTED_FLAG;
-  }
-  if (flags & REQ_DONTPREP) {
-    res |= HWM_DONTPREP_FLAG;
-  }
-  if (flags & REQ_QUEUED) {
-    res |= HWM_QUEUED_FLAG;
-  }
-  if (flags & REQ_ELVPRIV) {
-    res |= HWM_ELVPRIV_FLAG;
-  }
-  if (flags & REQ_FAILED) {
-    res |= HWM_FAILED_FLAG;
-  }
-  if (flags & REQ_QUIET) {
-    res |= HWM_QUIET_FLAG;
-  }
-  if (flags & REQ_PREEMPT) {
-    res |= HWM_PREEMPT_FLAG;
-  }
-  if (flags & REQ_ALLOCED) {
-    res |= HWM_ALLOCED_FLAG;
-  }
-  if (flags & REQ_COPY_USER) {
-    res |= HWM_COPY_USER_FLAG;
-  }
-  if (flags & REQ_FLUSH_SEQ) {
-    res |= HWM_FLUSH_SEQ_FLAG;
-  }
-  if (flags & REQ_IO_STAT) {
-    res |= HWM_IO_STAT_FLAG;
-  }
-  if (flags & REQ_MIXED_MERGE) {
-    res |= HWM_MIXED_MERGE_FLAG;
-  }
-  if (flags & REQ_PM) {
-    res |= HWM_PM_FLAG;
-  }
-
-//these are flags present in 3.16 but not 3.13
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
-
-  if (flags & REQ_PM) {
-    res |= HWM_PM_FLAG;
-  }
-  if (flags & REQ_HASHED) {
-    res |= HWM_HASHED_FLAG;
-  }
-  if (flags & REQ_MQ_INFLIGHT) {
-    res |= HWM_MQ_INFLIGHT_FLAG;
-  }
-#endif
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0))
-// These are flags present in 4.4 but not 3.13.
-  if (flags & REQ_PM) {
-    res |= HWM_PM_FLAG;
-  }
-  if (flags & REQ_INTEGRITY) {
-    res |= HWM_INTEGRITY_FLAG;
-  }
-  if (flags & REQ_HASHED) {
-    res |= HWM_HASHED_FLAG;
-  }
-  if (flags & REQ_MQ_INFLIGHT) {
-    res |= HWM_MQ_INFLIGHT_FLAG;
-  }
-  if (flags & REQ_NO_TIMEOUT) {
-    res |= HWM_NO_TIMEOUT_FLAG;
-  }
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)
-  if ((flags >> BIO_OP_SHIFT) == REQ_OP_WRITE) {
-    res |= HWM_WRITE_FLAG;
-  }
-  if ((flags >> BIO_OP_SHIFT) == REQ_OP_DISCARD) {
-    res |= HWM_DISCARD_FLAG;
-  }
-  if ((flags >> BIO_OP_SHIFT) == REQ_OP_SECURE_ERASE) {
-    res |= HWM_SECURE_FLAG;
-  }
-  if ((flags >> BIO_OP_SHIFT) == REQ_OP_WRITE_SAME) {
-    res |= HWM_WRITE_SAME_FLAG;
-  }
-  if ((flags >> BIO_OP_SHIFT) == REQ_OP_FLUSH) {
-    res |= HWM_FLUSH_FLAG;
-  }
-  if (flags & REQ_FAILFAST_DEV) {
-    res |= HWM_FAILFAST_DEV_FLAG;
-  }
-  if (flags & REQ_FAILFAST_TRANSPORT) {
-    res |= HWM_FAILFAST_TRANSPORT_FLAG;
-  }
-  if (flags & REQ_FAILFAST_DRIVER) {
-    res |= HWM_FAILFAST_DRIVER_FLAG;
-  }
-  if (flags & REQ_SYNC) {
-    res |= HWM_SYNC_FLAG;
-  }
-  if (flags & REQ_META) {
-    res |= HWM_META_FLAG;
-  }
-  if (flags & REQ_PRIO) {
-    res |= HWM_PRIO_FLAG;
-  }
-  if (flags & REQ_NOIDLE) {
-    res |= HWM_NOIDLE_FLAG;
-  }
-  if (flags & REQ_FUA) {
-    res |= HWM_FUA_FLAG;
-  }
-  if (flags & REQ_PREFLUSH) {
-    res |= HWM_FLUSH_FLAG;
-  }
-  if (flags & REQ_RAHEAD) {
-    res |= HWM_READAHEAD_FLAG;
-  }
-  if (flags & REQ_THROTTLED) {
-    res |= HWM_THROTTLED_FLAG;
-  }
-  if (flags & REQ_SORTED) {
-    res |= HWM_SORTED_FLAG;
-  }
-  if (flags & REQ_SOFTBARRIER) {
-    res |= HWM_SOFTBARRIER_FLAG;
-  }
-  if (flags & REQ_NOMERGE) {
-    res |= HWM_NOMERGE_FLAG;
-  }
-  if (flags & REQ_STARTED) {
-    res |= HWM_STARTED_FLAG;
-  }
-  if (flags & REQ_DONTPREP) {
-    res |= HWM_DONTPREP_FLAG;
-  }
-  if (flags & REQ_QUEUED) {
-    res |= HWM_QUEUED_FLAG;
-  }
-  if (flags & REQ_ELVPRIV) {
-    res |= HWM_ELVPRIV_FLAG;
-  }
-  if (flags & REQ_FAILED) {
-    res |= HWM_FAILED_FLAG;
-  }
-  if (flags & REQ_QUIET) {
-    res |= HWM_QUIET_FLAG;
-  }
-  if (flags & REQ_PREEMPT) {
-    res |= HWM_PREEMPT_FLAG;
-  }
-  if (flags & REQ_ALLOCED) {
-    res |= HWM_ALLOCED_FLAG;
-  }
-  if (flags & REQ_COPY_USER) {
-    res |= HWM_COPY_USER_FLAG;
-  }
-  if (flags & REQ_FLUSH_SEQ) {
-    res |= HWM_FLUSH_SEQ_FLAG;
-  }
-  if (flags & REQ_IO_STAT) {
-    res |= HWM_IO_STAT_FLAG;
-  }
-  if (flags & REQ_MIXED_MERGE) {
-    res |= HWM_MIXED_MERGE_FLAG;
-  }
-  if (flags & REQ_PM) {
-    res |= HWM_PM_FLAG;
-  }
-  if (flags & REQ_INTEGRITY) {
-    res |= HWM_INTEGRITY_FLAG;
-  }
-  if (flags & REQ_HASHED) {
-    res |= HWM_HASHED_FLAG;
-  }
-  if (flags & REQ_MQ_INFLIGHT) {
-    res |= HWM_MQ_INFLIGHT_FLAG;
-  }
-
-
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0) \
-    && LINUX_VERSION_CODE < KERNEL_VERSION(4, 17, 0) || \
-      LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0) && \
-      LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 3) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 7))
-
   if ((flags & REQ_OP_MASK) == REQ_OP_WRITE) {
     res |= HWM_WRITE_FLAG;
   }
@@ -553,86 +264,10 @@ static unsigned long long convert_flags(unsigned long long flags) {
   if (flags & REQ_RAHEAD) {
     res |= HWM_READAHEAD_FLAG;
   }
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
-  if ((flags & REQ_OP_MASK) == REQ_OP_WRITE) {
-    res |= HWM_WRITE_FLAG;
-  }
-  if ((flags & REQ_OP_MASK) == REQ_OP_DISCARD) {
-    res |= HWM_DISCARD_FLAG;
-  }
-  if ((flags & REQ_OP_MASK) == REQ_OP_SECURE_ERASE) {
-    res |= HWM_SECURE_FLAG;
-  }
-  if ((flags & REQ_OP_MASK) == REQ_OP_WRITE_SAME) {
-    res |= HWM_WRITE_SAME_FLAG;
-  }
-  if ((flags & REQ_OP_MASK) == REQ_OP_WRITE_ZEROES) {
-    res |= HWM_WRITE_ZEROES_FLAG;
-  }
-
-  if (flags & REQ_FAILFAST_DEV) {
-    res |= HWM_FAILFAST_DEV_FLAG;
-  }
-  if (flags & REQ_FAILFAST_TRANSPORT) {
-    res |= HWM_FAILFAST_TRANSPORT_FLAG;
-  }
-  if (flags & REQ_FAILFAST_DRIVER) {
-    res |= HWM_FAILFAST_DRIVER_FLAG;
-  }
-  if (flags & REQ_SYNC) {
-    res |= HWM_SYNC_FLAG;
-  }
-  if (flags & REQ_META) {
-    res |= HWM_META_FLAG;
-  }
-  if (flags & REQ_PRIO) {
-    res |= HWM_PRIO_FLAG;
-  }
-  if (flags & REQ_NOMERGE) {
-    res |= HWM_NOMERGE_FLAG;
-  }
-  if (!(flags & REQ_IDLE)) {
-    res |= HWM_NOIDLE_FLAG;
-  }
-  if (flags & REQ_INTEGRITY) {
-    res |= HWM_INTEGRITY_FLAG;
-  }
-  if (flags & REQ_FUA) {
-    res |= HWM_FUA_FLAG;
-  }
-  if (flags & REQ_PREFLUSH) {
-    res |= HWM_FLUSH_FLAG;
-  }
-  if (flags & REQ_RAHEAD) {
-    res |= HWM_READAHEAD_FLAG;
-  }
-#else
-#error "Unsupported kernel version: CrashMonkey has not been tested with " \
-  "your kernel version."
-#endif
   return res;
 }
 
 static bool should_log(struct bio *bio) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
-  return
-    (bio->BI_RW & REQ_FLUSH || bio->BI_RW & REQ_FUA ||
-     bio->BI_RW & REQ_FLUSH_SEQ || bio->BI_RW & REQ_WRITE ||
-     bio->BI_RW & REQ_DISCARD);
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0))
-  return
-    ((bio_flags(bio) & REQ_FUA) || (bio_flags(bio) & REQ_PREFLUSH) ||
-     (bio_op(bio) == REQ_OP_FLUSH) || (bio_op(bio) == REQ_OP_WRITE) ||
-     (bio_op(bio) == REQ_OP_DISCARD) || (bio_op(bio) == REQ_OP_SECURE_ERASE) ||
-     (bio_op(bio) == REQ_OP_WRITE_SAME) || (bio_flags(bio) & BIO_DISCARD_FLAG));
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0) \
-    && LINUX_VERSION_CODE < KERNEL_VERSION(4, 17, 0)) || \
-      LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0) && \
-      LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 3) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 7))
   return
     ((bio->BI_RW & REQ_FUA) || (bio->BI_RW & REQ_PREFLUSH) ||
      (bio->BI_RW & REQ_OP_FLUSH) || (bio_op(bio) == REQ_OP_WRITE) ||
@@ -640,19 +275,6 @@ static bool should_log(struct bio *bio) {
      (bio_op(bio) == REQ_OP_SECURE_ERASE) ||
      (bio_op(bio) == REQ_OP_WRITE_SAME) ||
      (bio_op(bio) == REQ_OP_WRITE_ZEROES));
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
-  return
-    ((bio->BI_RW & REQ_FUA) || (bio->BI_RW & REQ_PREFLUSH) ||
-     (bio->BI_RW & REQ_OP_FLUSH) || (bio_op(bio) == REQ_OP_WRITE) ||
-     (bio_op(bio) == BIO_DISCARD_FLAG) ||
-     (bio_op(bio) == REQ_OP_SECURE_ERASE) ||
-     (bio_op(bio) == REQ_OP_WRITE_SAME) ||
-     (bio_op(bio) == REQ_OP_WRITE_ZEROES));
-#else
-#error "Unsupported kernel version: CrashMonkey has not been tested with " \
-  "your kernel version."
-#endif
 }
 
 /*
@@ -662,49 +284,11 @@ static bool should_log(struct bio *bio) {
  * the output log of a workload for the textual values CrashMonkey spits out.
  */
 static void print_rw_flags(unsigned long rw, unsigned long flags) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
-  int i;
-  printk(KERN_INFO "\traw rw flags: 0x%.8lx\n", rw);
-  for (i = __REQ_WRITE; i < __REQ_NR_BITS; i++) {
-    if (rw & (1ULL << i)) {
-      printk(KERN_INFO "\t%s\n", flag_names[i]);
-    }
-  }
-  printk(KERN_INFO "\traw flags flags: %.8lx\n", flags);
-  for (i = __REQ_WRITE; i < __REQ_NR_BITS; i++) {
-    if (flags & (1ULL << i)) {
-      printk(KERN_INFO "\t%s\n", flag_names[i]);
-    }
-  }
-#endif
+
 }
 
 // TODO(ashmrtn): Currently not thread safe/reentrant. Make it so.
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0))
-static void disk_wrapper_bio(struct request_queue* q, struct bio* bio) {
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 17, 0)) || \
-     LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0) && \
-     LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 3) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 7))
-static blk_qc_t disk_wrapper_bio(struct request_queue* q, struct bio* bio) {
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
-static blk_qc_t disk_wrapper_bio(struct bio* bio) {
-#else
-#error "Unsupported kernel version: CrashMonkey has not been tested with " \
-  "your kernel version."
-#endif
+static blk_qc_t disk_submit_bio(struct bio *bio) {
   int copied_data;
   struct disk_write_op *write;
   struct hwm_device* hwm;
@@ -714,7 +298,7 @@ static blk_qc_t disk_wrapper_bio(struct bio* bio) {
   printk(KERN_INFO "hwm: bio rw of size %u headed for 0x%lx (sector 0x%lx)"
       " has flags:\n", bio->BI_SIZE, bio->BI_SECTOR * 512, bio->BI_SECTOR);
   print_rw_flags(bio->BI_RW, bio->bi_flags);
-
+  printk(KERN_INFO "hwm: flags printed");
   // Log information about writes, fua, and flush/flush_seq events in kernel
   // memory.
   if (Device.log_on && should_log(bio)) {
@@ -764,19 +348,6 @@ static blk_qc_t disk_wrapper_bio(struct bio* bio) {
     }
     copied_data = 0;
 
-    #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 16, 0)
-    struct bio_vec *vec;
-    int iter;
-    bio_for_each_segment(vec, bio, iter) {
-      printk(KERN_INFO "hwm: making new page for segment of data\n");
-
-      void *bio_data = kmap(vec->bv_page);
-      memcpy((void*) (write->data + copied_data), bio_data + vec->bv_offset,
-             vec->bv_len);
-      kunmap(bio_data);
-      copied_data += vec->bv_len;
-    }
-    #else
     struct bio_vec vec;
     struct bvec_iter iter;
     bio_for_each_segment(vec, bio, iter) {
@@ -788,59 +359,20 @@ static blk_qc_t disk_wrapper_bio(struct bio* bio) {
       kunmap(bio_data);
       copied_data += vec.bv_len;
     }
-    #endif
     // Sanity check which prints data copied to the log.
-
     printk(KERN_INFO "hwm: copied %ld bytes of from %lx data:"
         "\n~~~\n%s\n~~~\n",
         write->metadata.size, write->metadata.write_sector * 512,
         write->data);
-    
   }
 
  passthrough:
   // Pass request off to normal device driver.
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
   hwm = (struct hwm_device*) bio->bi_bdev->bd_disk->queue->queuedata;
-#else:
-  hwm = (struct hwm_device*) q->queuedata;
-#endif
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0))
-  bio->bi_bdev = hwm->target_dev;
-  submit_bio(bio->BI_RW, bio);
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0))
-  bio->bi_bdev = hwm->target_dev;
-  submit_bio(bio);
-  return BLK_QC_T_NONE;
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 17, 0) || \
-     LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0) && \
-     LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 3) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 7))
-  bio->bi_disk = hwm->target_dev;
-  bio->bi_partno = hwm->target_partno;
-  submit_bio(bio);
-  return BLK_QC_T_NONE;
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
   bio->bi_bdev->bd_disk = hwm->target_dev;
   bio->bi_bdev->bd_partno = hwm->target_partno;
   submit_bio(bio);
   return BLK_QC_T_NONE;
-#else
-#error "Unsupported kernel version: CrashMonkey has not been tested with " \
-  "your kernel version."
-#endif
 }
 
 
@@ -848,13 +380,14 @@ static blk_qc_t disk_wrapper_bio(struct bio* bio) {
 static const struct block_device_operations disk_wrapper_ops = {
   .owner   = THIS_MODULE,
   .ioctl   = disk_wrapper_ioctl,
-  .submit_bio =		disk_wrapper_bio
+  .submit_bio =		disk_submit_bio
 };
 
 
 
 // TODO(ashmrtn): Fix error when wrong device path is passed.
 static int __init disk_wrapper_init(void) {
+  	int err = -ENOMEM;
   unsigned int flush_flags;
   unsigned long queue_flags;
   struct block_device *flags_device, *target_device;
@@ -903,8 +436,7 @@ static int __init disk_wrapper_init(void) {
     printk(KERN_WARNING "hwm: unable to grab underlying device\n");
     goto out;
   }
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
+
   if (!target_device->bd_disk->queue) {
     printk(KERN_WARNING "hwm: attempt to wrap device with no request queue\n");
     goto out;
@@ -914,47 +446,10 @@ static int __init disk_wrapper_init(void) {
         "make_request_fn\n");
     goto out;
   }
-#else
-  if (!target_device->bd_queue) {
-    printk(KERN_WARNING "hwm: attempt to wrap device with no request queue\n");
-    goto out;
-  }
-  if (!target_device->bd_queue->make_request_fn) {
-    printk(KERN_WARNING "hwm: attempt to wrap device with no "
-        "make_request_fn\n");
-    goto out;
-  }
-#endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0))
-  Device.target_dev = target_device;
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 17, 0) || \
-     LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0) && \
-     LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 3) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 7))
   Device.target_dev = target_device->bd_disk;
   Device.target_partno = target_device->bd_partno;
   Device.target_bd = target_device;
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
-  Device.target_dev = target_device->bd_disk;
-  Device.target_partno = target_device->bd_partno;
-  Device.target_bd = target_device;
-#else
-#error "Unsupported kernel version: CrashMonkey has not been tested with " \
-  "your kernel version."
-#endif
 
   // Get the device we should copy flags from and copy those flags into locals.
   flags_device = blkdev_get_by_path(flags_device_path, FMODE_READ, &Device);
@@ -963,50 +458,23 @@ static int __init disk_wrapper_init(void) {
     goto out;
   }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
+
 
   if (!flags_device->bd_disk->queue) {
     printk(KERN_WARNING "hwm: attempt to wrap device with no request queue\n");
     goto out;
   }
-#else
-  if (!flags_device->bd_queue) {
-    printk(KERN_WARNING "hwm: attempt to wrap device with no request queue\n");
-    goto out;
-  }
-#endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0))
-  // Field not present in kernel 4.9+.
-  flush_flags = flags_device->bd_queue->flush_flags;
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
   queue_flags = flags_device->bd_disk->queue->queue_flags;
-#else
-  queue_flags = flags_device->bd_queue->queue_flags;
-#endif
+
   blkdev_put(flags_device, FMODE_READ);
 
   // Set up our internal device.
   spin_lock_init(&Device.lock);
 
   // And the gendisk structure.
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
   Device.gd = blk_alloc_disk(1);
-#else
-  Device.gd = alloc_disk(1);
-#endif
+
   if (!Device.gd) {
     goto out;
   }
@@ -1019,50 +487,16 @@ static int __init disk_wrapper_init(void) {
   strcpy(Device.gd->disk_name, "hwm");
   Device.gd->fops = &disk_wrapper_ops;
 
-// Get a request queue.
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
-#else
-  Device.gd->queue = blk_alloc_queue(GFP_KERNEL);
 
-  if (Device.gd->queue == NULL) {
-    goto out;
-  }
-  blk_queue_make_request(Device.gd->queue, disk_wrapper_bio);
-#endif
-  // Make this queue have the same flags as the queue we're feeding into.
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0))
-  Device.gd->queue->flush_flags = flush_flags;
-#endif
-//#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
-//    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0) 
-//  blk_queue_flag_set(queue_flags, Device.gd->queue);
-// #else
+
   Device.gd->queue->queue_flags = queue_flags;
   Device.gd->queue->queuedata = &Device;
   printk(KERN_INFO "hwm: working with queue with:\n\tflags 0x%lx\n",
       Device.gd->queue->queue_flags);
-// #endif
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0))
-  printk(KERN_INFO "hwm: working with queue with:\n\tflush flags 0x%lx\n",
-      Device.gd->queue->flush_flags);
-#endif
 
-  add_disk(Device.gd);
+  printk(KERN_INFO "hwm: try to add disk");
+  err = add_disk(Device.gd);
+	printk(KERN_INFO "hwm: brd alloc error %d", err);
 
   printk(KERN_NOTICE "hwm: initialized\n");
   return 0;
@@ -1074,36 +508,11 @@ static int __init disk_wrapper_init(void) {
 
 static void __exit hello_cleanup(void) {
   free_logs();
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0))
-  blkdev_put(Device.target_dev, FMODE_READ);
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(4, 17, 0) || \
-     LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0) && \
-     LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 3) || \
-  (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 7))
   blkdev_put(Device.target_bd, FMODE_READ);
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0) && \
-    LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
-  blkdev_put(Device.target_bd, FMODE_READ);
-#else
-#error "Unsupported kernel version: CrashMonkey has not been tested with " \
-  "your kernel version."
-#endif
-  blk_cleanup_queue(Device.gd->queue);
+  blk_cleanup_disk(Device.gd);
   del_gendisk(Device.gd);
   put_disk(Device.gd);
   unregister_blkdev(major_num, "hwm");
-
   printk(KERN_INFO "hwm: Cleaning up bye!\n");
 }
 
