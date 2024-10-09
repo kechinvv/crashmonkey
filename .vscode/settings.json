@@ -1,5 +1,9 @@
 {
     "files.associations": {
-        "cstdlib": "c"
+        "cstdlib": "c",
+        "ostream": "cpp",
+        "iostream": "cpp",
+        "chrono": "c",
+        "variant": "c"
     }
 }

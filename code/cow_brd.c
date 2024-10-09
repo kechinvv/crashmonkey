@@ -376,7 +376,7 @@ static blk_qc_t brd_submit_bio(struct bio *bio)
 				(len & (SECTOR_SIZE - 1)));
 
 		err = brd_do_bvec(brd, bvec.bv_page, len, bvec.bv_offset,
-				  bio_op(bio), sector);
+				  rw, sector);
 		if (err)
 			goto io_error;
 		sector += len >> SECTOR_SHIFT;
@@ -467,7 +467,7 @@ static int brd_rw_page(struct block_device *bdev, sector_t sector,
 
 static const struct block_device_operations brd_fops = {
 	.owner =		THIS_MODULE,
-  .ioctl = brd_ioctl,
+  	.ioctl = brd_ioctl,
 	.submit_bio =		brd_submit_bio,
 	.rw_page =		brd_rw_page,
 #ifdef CONFIG_BLK_DEV_XIP
@@ -651,8 +651,8 @@ static int brd_alloc(int i)
 	blk_queue_flag_set(QUEUE_FLAG_NONROT, disk->queue);
 	printk(KERN_WARNING DEVICE_NAME ": 	blk_queue_flag_clear; QUEUE_FLAG_ADD_RANDOM");
 	blk_queue_flag_clear(QUEUE_FLAG_ADD_RANDOM, disk->queue);
-	printk(KERN_WARNING DEVICE_NAME ": 	blk_queue_flag_set QUEUE_FLAG_NOWAIT;");
-	blk_queue_flag_set(QUEUE_FLAG_NOWAIT, disk->queue);
+	//printk(KERN_WARNING DEVICE_NAME ": 	blk_queue_flag_set QUEUE_FLAG_NOWAIT;");
+	//blk_queue_flag_set(QUEUE_FLAG_NOWAIT, disk->queue);
 	printk(KERN_WARNING DEVICE_NAME ": 	add_disk;");
 	err = add_disk(disk);
 	printk(KERN_INFO DEVICE_NAME " brd alloc error %d", err);

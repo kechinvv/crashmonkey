@@ -68,7 +68,7 @@
   && LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0))
 
 #define BI_RW                   bi_opf
-#define BI_DISK                 bi_disk
+#define BI_DISK                 bi_bdev->bd_disk
 #define BI_SIZE                 bi_iter.bi_size
 #define BI_SECTOR               bi_iter.bi_sector
 #define BIO_ENDIO(bio, err)     bio_endio(bio)

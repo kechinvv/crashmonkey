@@ -141,6 +141,7 @@ unsigned int Tester::GetPostRunDelay() {
 
 int Tester::clone_device() {
   std::cout << "cloning device " << device_raw << std::endl;
+  cout << "clone " << cow_brd_fd << "with snapshot " << COW_BRD_SNAPSHOT << endl;
   if (ioctl(cow_brd_fd, COW_BRD_SNAPSHOT) < 0) {
     return DRIVE_CLONE_ERR;
   }
@@ -183,6 +184,7 @@ int Tester::mount_wrapper_device(const char* opts) {
 }
 
 int Tester::mount_device(const char* dev, const char* opts) {
+  cout << "DEVICE = " << dev << " opts = " << opts << " FS_TYPE " << fs_type << endl;
   if (mount(dev, MNT_MNT_POINT, fs_type.c_str(), 0, (void*) opts) < 0) {
     disk_mounted = false;
     return MNT_MNT_ERR;
@@ -193,6 +195,7 @@ int Tester::mount_device(const char* dev, const char* opts) {
 
 int Tester::umount_device() {
   if (disk_mounted) {
+    cout << "UNMOUNT " << MNT_MNT_POINT << endl;
     if (umount(MNT_MNT_POINT) < 0) {
       disk_mounted = true;
       return MNT_UMNT_ERR;
@@ -315,6 +318,11 @@ int Tester::insert_wrapper() {
     if (!verbose) {
       command += SILENT;
     }
+    cout << "INSERT WRAPPER " << command << endl;
+    //FOR TEST
+    //wrapper_inserted = true;
+    //return SUCCESS;
+
     if (system(command.c_str()) != 0) {
       wrapper_inserted = false;
       return WRAPPER_INSERT_ERR;
@@ -353,6 +361,7 @@ int Tester::remove_wrapper() {
 
 int Tester::get_wrapper_ioctl() {
   ioctl_fd = open(FULL_WRAPPER_PATH, O_RDONLY | O_CLOEXEC);
+  cout << "FULL WRAPPER PATH " << FULL_WRAPPER_PATH << " FD = " << ioctl_fd << endl;
   if (ioctl_fd == -1) {
     return WRAPPER_OPEN_DEV_ERR;
   }
@@ -598,12 +607,14 @@ int Tester::wipe_partitions() {
 
 int Tester::format_drive() {
   if (device_raw.empty()) {
+    cout << "format drive DISK " << device_raw << " EMPTY" << endl;
     return PART_PART_ERR;
   }
   string command = fs_specific_ops_->GetMkfsCommand(device_mount);
   if (!verbose) {
     command += SILENT;
   }
+  cout << "cmd for format drive DISK " << device_raw << command << endl;
   if (system(command.c_str()) != 0) {
     return FMT_FMT_ERR;
   }

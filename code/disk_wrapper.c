@@ -483,20 +483,28 @@ static int __init disk_wrapper_init(void) {
   Device.gd->major = major_num;
   Device.gd->first_minor = target_device->bd_disk->first_minor;
   Device.gd->minors = target_device->bd_disk->minors;
-  set_capacity(Device.gd, get_capacity(target_device->bd_disk));
-  strcpy(Device.gd->disk_name, "hwm");
   Device.gd->fops = &disk_wrapper_ops;
 
-
+  set_capacity(Device.gd, get_capacity(target_device->bd_disk));
+  strcpy(Device.gd->disk_name, "hwm");
 
   Device.gd->queue->queue_flags = queue_flags;
   Device.gd->queue->queuedata = &Device;
   printk(KERN_INFO "hwm: working with queue with:\n\tflags 0x%lx\n",
       Device.gd->queue->queue_flags);
 
+  printk(KERN_WARNING ": 	blk_queue_physical_block_size;");
+	blk_queue_physical_block_size(Device.gd->queue, PAGE_SIZE);
+
+	/* Tell the block layer that this is not a rotational device */
+	printk(KERN_WARNING ": 	blk_queue_flag_set; QUEUE_FLAG_NONROT");
+	blk_queue_flag_set(QUEUE_FLAG_NONROT, Device.gd->queue);
+	printk(KERN_WARNING ": 	blk_queue_flag_clear; QUEUE_FLAG_ADD_RANDOM");
+	blk_queue_flag_clear(QUEUE_FLAG_ADD_RANDOM, Device.gd->queue);
+
   printk(KERN_INFO "hwm: try to add disk");
   err = add_disk(Device.gd);
-	printk(KERN_INFO "hwm: brd alloc error %d", err);
+	printk(KERN_INFO "hwm: disk alloc error %d", err);
 
   printk(KERN_NOTICE "hwm: initialized\n");
   return 0;

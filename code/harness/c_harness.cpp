@@ -310,7 +310,9 @@ int main(int argc, char** argv) {
   if(setenv("FILESYS_SIZE", filesize.c_str(), 1) == -1){
     cerr << "Error setting environment variable FILESYS_SIZE" << endl;
   }
-  
+  cout << "FILE SIZE " << filesize.c_str() << endl;
+
+
   // Load the class being tested.
   cout << "Loading test case" << endl;
   if (test_harness.test_load_class(argv[test_case_idx]) != SUCCESS) {
@@ -319,7 +321,7 @@ int main(int argc, char** argv) {
   }
   
   test_harness.test_init_values(mount_dir, test_dev_size);
-  
+  cout << "MOUNT DIR = " << mount_dir << "; TEST DEV SIZE = " << test_dev_size << endl;
   // Load the permuter to use for the test.
   // TODO(ashmrtn): Consider making a line in the test file which specifies the
   // permuter to use?
