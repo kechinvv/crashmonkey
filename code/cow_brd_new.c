@@ -57,6 +57,8 @@ struct brd_device {
 	struct list_head	brd_list;
 
     struct brd_device *parent_brd;
+    bool  is_writable;
+    bool  is_snapshot;
 	/*
 	 * Backing store of pages and lock to protect it. This is the contents
 	 * of the block device.
@@ -105,6 +107,8 @@ static struct page *brd_insert_page(struct brd_device *brd, sector_t sector)
 	pgoff_t idx;
 	struct page *page;
 	gfp_t gfp_flags;
+    struct page *parent_page = NULL;
+    void *dst, *parent_src = NULL;
 
 	page = brd_lookup_page(brd, sector);
 	if (page)
@@ -387,11 +391,10 @@ static blk_qc_t brd_submit_bio(struct bio *bio)
 	sector_t sector = bio->bi_iter.bi_sector;
 	struct bio_vec bvec;
 	struct bvec_iter iter;
+    int err = -EIO;
 
-    rw = BIO_IS_WRITE(bio);
-
-    if ((rw || bio->BI_RW & BIO_DISCARD_FLAG) && !brd->is_writable) {
-        goto out_err;
+    if ((BIO_IS_WRITE(bio) || bio->BI_RW & BIO_DISCARD_FLAG) && !brd->is_writable) {
+        goto io_error;
     }
 
     // MAY BE PROBLEM
@@ -415,7 +418,7 @@ static blk_qc_t brd_submit_bio(struct bio *bio)
 			goto io_error;
 		sector += len >> SECTOR_SHIFT;
 	}
-
+out:
 	bio_endio(bio);
 	return BLK_QC_T_NONE;
 io_error:
@@ -523,7 +526,7 @@ module_param(num_snapshots, int, S_IRUGO);
 MODULE_PARM_DESC(num_snapshots, "Number of ram block snapshot devices where "
     "each disk gets it's own snapshot");
 module_param(disk_size, int, S_IRUGO);
-MODULE_PARM_DESC(rd_size, "Size of each RAM disk in kbytes.");
+MODULE_PARM_DESC(disk_size, "Size of each RAM disk in kbytes.");
 
 static int max_part;        // MAY BE PROBLEM
 module_param(max_part, int, S_IRUGO);
@@ -553,7 +556,7 @@ static struct dentry *brd_debugfs_dir;
 
 static int brd_alloc(int i)
 {
-	struct brd_device *brd;
+	struct brd_device *brd, *parent_brd;
 	struct gendisk *disk;
 	char buf[DISK_NAME_LEN];
 
@@ -616,7 +619,7 @@ static int brd_alloc(int i)
     } else {
         sprintf(disk->disk_name, "cow_ram%d", i);
     }
-	set_capacity(disk, rd_size * 2);
+	set_capacity(disk, disk_size * 2);
 
 
     blk_queue_max_hw_sectors(disk->queue, 1024);
@@ -685,8 +688,10 @@ static inline void brd_check_and_reset_par(void)
 
 static int __init brd_init(void)
 {
-	struct brd_device *brd, *next;
+	struct brd_device *brd, *next, *parent_brd;
 	int err, i;
+    const int nr = num_disks * (1 + num_snapshots);
+    unsigned long range;
 
 	/*
 	 * brd module now has a feature to instantiate underlying device
