@@ -32,11 +32,14 @@
 
 #ifndef SECTOR_SHIFT 
 #define SECTOR_SHIFT        9
+#endif
 
 #ifndef PAGE_SECTORS_SHIFT
 #define PAGE_SECTORS_SHIFT  (PAGE_SHIFT - SECTOR_SHIFT)
+#endif
 #ifndef PAGE_SECTORS
 #define PAGE_SECTORS        (1 << PAGE_SECTORS_SHIFT)
+#endif
 
 #define DEFAULT_COW_RD_SIZE 512000
 #define DEVICE_NAME         "cow_brd"
