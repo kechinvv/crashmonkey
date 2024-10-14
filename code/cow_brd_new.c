@@ -597,8 +597,11 @@ static int brd_alloc(int i)
 
 	spin_lock_init(&brd->brd_lock);
 	INIT_RADIX_TREE(&brd->brd_pages, GFP_ATOMIC);
-
-	snprintf(buf, DISK_NAME_LEN, "ram%d", i);
+    if (brd->is_snapshot) {
+	    sprintf(buf, DISK_NAME_LEN, "cow_ram_snapshot%d_%d", i / num_disks, i % num_disks);
+    } else {
+        sprintf(buf, DISK_NAME_LEN, "cow_ram%d", i);
+    }
 	if (!IS_ERR_OR_NULL(brd_debugfs_dir))
 		debugfs_create_u64(buf, 0444, brd_debugfs_dir,
 				&brd->brd_nr_pages);
@@ -761,7 +764,7 @@ out_free:
 	list_for_each_entry_safe(brd, next, &brd_devices, brd_list)
 		brd_del_one(brd);
 
-	pr_info("brd: module NOT loaded !!!\n");
+	pr_info(DEVICE_NAME": module NOT loaded !!!\n");
 	return err;
 }
 
@@ -775,7 +778,7 @@ static void __exit brd_exit(void)
 	list_for_each_entry_safe(brd, next, &brd_devices, brd_list)
 		brd_del_one(brd);
 
-	pr_info("brd: module unloaded\n");
+    printk(KERN_INFO DEVICE_NAME ": module unloaded\n");
 }
 
 module_init(brd_init);
