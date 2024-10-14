@@ -4,6 +4,7 @@
         "ostream": "cpp",
         "iostream": "cpp",
         "chrono": "c",
-        "variant": "c"
+        "variant": "c",
+        "bio_alias.h": "c"
     }
 }
