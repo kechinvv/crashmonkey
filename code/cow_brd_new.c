@@ -560,53 +560,74 @@ static int brd_alloc(int i)
 	struct gendisk *disk;
 	char buf[DISK_NAME_LEN];
 
+    printk(KERN_WARNING DEVICE_NAME ": alloc start for brd number %d\n", i);
+
+
 	mutex_lock(&brd_devices_mutex);
+    printk(KERN_WARNING DEVICE_NAME ": list_for_each_entry");
 	list_for_each_entry(brd, &brd_devices, brd_list) {
 		if (brd->brd_number == i) {
 			mutex_unlock(&brd_devices_mutex);
 			return -EEXIST;                         // MAY BE PROBLEM - PROBE IN ORIGINAL CRASHMONKEY RETURN BRD
 		}
 	}
+
+    printk(KERN_WARNING DEVICE_NAME ": before kzalloc");
+
 	brd = kzalloc(sizeof(*brd), GFP_KERNEL);
 	if (!brd) {
 		mutex_unlock(&brd_devices_mutex);
 		return -ENOMEM;
 	}
 
+	printk(KERN_WARNING DEVICE_NAME ": assigne brd fields");
 
 	brd->brd_number		= i;
     brd->is_writable  = true;   // True on disks until "snapshot" ioctl is called.
     brd->is_snapshot  = i >= num_disks;
 
 
-
+	printk(KERN_WARNING DEVICE_NAME ": list_add_tail(&brd->brd_list, &brd_devices);");
 
 	list_add_tail(&brd->brd_list, &brd_devices);
+
+    printk(KERN_WARNING DEVICE_NAME ": i >= num_disks;");
+
     if (i >= num_disks) {
       // Set the parent pointer for this device.
+          printk(KERN_WARNING DEVICE_NAME ": list_for_each_entry(parent_brd, &brd_devices, brd_list);");
       list_for_each_entry(parent_brd, &brd_devices, brd_list) {
         if (parent_brd->brd_number == i % num_disks) {
+          printk(KERN_WARNING DEVICE_NAME ": brd->parent_brd = parent_brd;;");
           brd->parent_brd = parent_brd;
           break;
         }
       }
     } else {
+      printk(KERN_WARNING DEVICE_NAME ": brd->parent_brd = NULL;");
       brd->parent_brd = NULL;
     }
 	mutex_unlock(&brd_devices_mutex);
 
+    printk(KERN_WARNING DEVICE_NAME ": spin_lock_init;");
 	spin_lock_init(&brd->brd_lock);
 	INIT_RADIX_TREE(&brd->brd_pages, GFP_ATOMIC);
-    if (brd->is_snapshot) {
-	    sprintf(buf, DISK_NAME_LEN, "cow_ram_snapshot%d_%d", i / num_disks, i % num_disks);
-    } else {
-        sprintf(buf, DISK_NAME_LEN, "cow_ram%d", i);
-    }
-	if (!IS_ERR_OR_NULL(brd_debugfs_dir))
-		debugfs_create_u64(buf, 0444, brd_debugfs_dir,
-				&brd->brd_nr_pages);
 
-	disk = brd->brd_disk = blk_alloc_disk(NUMA_NO_NODE);
+    printk(KERN_WARNING DEVICE_NAME ": set buf;");
+    if (brd->is_snapshot) {
+	    snprintf(buf, DISK_NAME_LEN, "cow_ram_snapshot%d_%d", i / num_disks, i % num_disks);
+    } else {
+        snprintf(buf, DISK_NAME_LEN, "cow_ram%d", i);
+    }
+    
+    printk(KERN_WARNING DEVICE_NAME ": IS_ERR_OR_NULL;");
+	if (!IS_ERR_OR_NULL(brd_debugfs_dir)){
+            printk(KERN_WARNING DEVICE_NAME ": debugfs_create_u64;");
+        debugfs_create_u64(buf, S_IRUGO, brd_debugfs_dir, &brd->brd_nr_pages);    
+        }
+
+	printk(KERN_WARNING DEVICE_NAME ": 	blk_alloc_disk %d", 1<<part_shift);
+	disk = brd->brd_disk = blk_alloc_disk(1 << part_shift);
 	if (!disk)
 		goto out_free_dev;
 
@@ -617,8 +638,7 @@ static int brd_alloc(int i)
 	disk->private_data	= brd;
 	disk->flags		|= GENHD_FL_SUPPRESS_PARTITION_INFO;        // MAY BE PROBLEM
     if (brd->is_snapshot) {
-        sprintf(disk->disk_name, "cow_ram_snapshot%d_%d", i / num_disks,
-            i % num_disks);
+        sprintf(disk->disk_name, "cow_ram_snapshot%d_%d", i / num_disks, i % num_disks);
     } else {
         sprintf(disk->disk_name, "cow_ram%d", i);
     }
@@ -643,7 +663,10 @@ static int brd_alloc(int i)
 	/* Tell the block layer that this is not a rotational device */     //MAYBE PROBLEM
 	// blk_queue_flag_set(QUEUE_FLAG_NONROT, disk->queue);      
 	// blk_queue_flag_clear(QUEUE_FLAG_ADD_RANDOM, disk->queue);
-	add_disk(disk);                                 // MAY BE PROBLEM - IN ORIGINAL ADD DISK AT THE END OF INIT
+    printk(KERN_WARNING DEVICE_NAME ": 	add_disk;");
+
+    add_disk(disk);                                 // MAY BE PROBLEM - IN ORIGINAL ADD DISK AT THE END OF INIT
+    printk(KERN_WARNING DEVICE_NAME ": 	disk added;");
 
 	return 0;
 
@@ -742,8 +765,8 @@ static int __init brd_init(void)
     }
 
     range = nr << part_shift;
-
-	brd_debugfs_dir = debugfs_create_dir("ramdisk_pages", NULL);
+    
+    brd_debugfs_dir = debugfs_create_dir("ramdisk_pages", NULL);
 
 	for (i = 0; i < nr; i++) {
 		err = brd_alloc(i);
