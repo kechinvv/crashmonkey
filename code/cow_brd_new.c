@@ -665,7 +665,7 @@ static int brd_alloc(int i)
 	// blk_queue_flag_clear(QUEUE_FLAG_ADD_RANDOM, disk->queue);
     printk(KERN_WARNING DEVICE_NAME ": 	add_disk;");
 
-    add_disk(disk);                                 // MAY BE PROBLEM - IN ORIGINAL ADD DISK AT THE END OF INIT
+    return add_disk(disk);                                 // MAY BE PROBLEM - IN ORIGINAL ADD DISK AT THE END OF INIT
     printk(KERN_WARNING DEVICE_NAME ": 	disk added;");
 
 	return 0;
@@ -695,7 +695,7 @@ static void brd_del_one(struct brd_device *brd)
 	kfree(brd);
 }
 
-/*
+
 static inline void brd_check_and_reset_par(void)
 {
 	if (unlikely(!max_part))
@@ -710,7 +710,7 @@ static inline void brd_check_and_reset_par(void)
 			DISK_MAX_PARTS, DISK_MAX_PARTS);
 		max_part = DISK_MAX_PARTS;
 	}
-}  */
+}  
 
 static int __init brd_init(void)
 {
@@ -739,6 +739,7 @@ static int __init brd_init(void)
         printk(KERN_WARNING DEVICE_NAME ": unable to get major number\n");
         return -EIO;
     }
+	brd_check_and_reset_par();
 
 
     part_shift = 0;
@@ -771,7 +772,7 @@ static int __init brd_init(void)
 	for (i = 0; i < nr; i++) {
 		err = brd_alloc(i);
 		if (err) {
-            printk(KERN_WARNING DEVICE_NAME ": err alloc\n");
+            printk(KERN_WARNING DEVICE_NAME ": err alloc %d\n", err);
             goto out_free;
         }
 
