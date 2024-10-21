@@ -565,13 +565,15 @@ int main(int argc, char** argv) {
     // We also need to log the changes made by mount of the FS
     // because the snapshot is taken after an unmount.
     
+/*
+
     // Mount the file system under the wrapper module for profiling.
     cout << "Mounting wrapper file system" << endl;
     if (test_harness.mount_wrapper_device(mount_opts.c_str()) != SUCCESS) {
       cerr << "Error mounting wrapper file system" << endl;
       test_harness.cleanup_harness();
       return -1;
-    }
+    } */
 
     // TODO(ashmrtn): Can probably remove this...
     /*
@@ -777,13 +779,14 @@ int main(int argc, char** argv) {
             return -1;
           }
 
+/*
           cout << "Unmounting wrapper file system after test profiling" << endl;
           logfile << "Unmounting wrapper file system after test profiling" << endl;
           if (test_harness.umount_device() != SUCCESS) {
             cerr << "Error unmounting wrapper file system" << endl;
             test_harness.cleanup_harness();
             return -1;
-          }
+          }*/
 
           cout << "Close wrapper ioctl fd" << endl;
           logfile << "Close wrapper ioctl fd" << endl;
