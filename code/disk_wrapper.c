@@ -125,8 +125,7 @@ static int disk_wrapper_ioctl(struct block_device* bdev, fmode_t mode,
         return -ENODATA;
       }
 
-      if (!access_ok((void*) arg,
-            sizeof(struct disk_write_op_meta))) {
+      if (!access_ok((void*) arg, sizeof(struct disk_write_op_meta))) {
         // TODO(ashmrtn): Find right error code.
         printk(KERN_WARNING "hwm: bad user land memory pointer in log entry"
             " size\n");
@@ -146,9 +145,7 @@ static int disk_wrapper_ioctl(struct block_device* bdev, fmode_t mode,
         printk(KERN_WARNING "hwm: no log entries to report data for\n");
         return -ENODATA;
       }
-      if (!access_ok((void*) arg,
-
-            Device.current_log_write->metadata.size)) {
+      if (!access_ok((void*) arg, Device.current_log_write->metadata.size)) {
         // TODO(ashmrtn): Find right error code.
         return -EFAULT;
       }
@@ -490,17 +487,8 @@ static int __init disk_wrapper_init(void) {
 
   Device.gd->queue->queue_flags = queue_flags;
   Device.gd->queue->queuedata = &Device;
-  printk(KERN_INFO "hwm: working with queue with:\n\tflags 0x%lx\n",
-      Device.gd->queue->queue_flags);
+  printk(KERN_INFO "hwm: working with queue with:\n\tflags 0x%lx\n", Device.gd->queue->queue_flags);
 
-  printk(KERN_WARNING ": 	blk_queue_physical_block_size;");
-	blk_queue_physical_block_size(Device.gd->queue, PAGE_SIZE);
-
-	/* Tell the block layer that this is not a rotational device */
-	printk(KERN_WARNING ": 	blk_queue_flag_set; QUEUE_FLAG_NONROT");
-	blk_queue_flag_set(QUEUE_FLAG_NONROT, Device.gd->queue);
-	printk(KERN_WARNING ": 	blk_queue_flag_clear; QUEUE_FLAG_ADD_RANDOM");
-	blk_queue_flag_clear(QUEUE_FLAG_ADD_RANDOM, Device.gd->queue);
 
   printk(KERN_INFO "hwm: try to add disk");
   err = add_disk(Device.gd);
@@ -515,11 +503,17 @@ static int __init disk_wrapper_init(void) {
 }
 
 static void __exit hello_cleanup(void) {
+  printk(KERN_INFO "hwm: 1\n");
   free_logs();
+  printk(KERN_INFO "hwm: 2\n");
   blkdev_put(Device.target_bd, FMODE_READ);
+  printk(KERN_INFO "hwm: 3\n");
   blk_cleanup_disk(Device.gd);
+  printk(KERN_INFO "hwm: 4\n");
   del_gendisk(Device.gd);
+  printk(KERN_INFO "hwm: 5\n");
   put_disk(Device.gd);
+  printk(KERN_INFO "hwm: 6\n");
   unregister_blkdev(major_num, "hwm");
   printk(KERN_INFO "hwm: Cleaning up bye!\n");
 }
