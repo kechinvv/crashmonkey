@@ -77,6 +77,7 @@ class Tester {
   int partition_drive();
   int wipe_partitions();
   int format_drive();
+  int format_wrapper();
   int clone_device();
   int clone_device_restore(int snapshot_fd, bool reread);
 

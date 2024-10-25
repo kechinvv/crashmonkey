@@ -621,6 +621,23 @@ int Tester::format_drive() {
   return SUCCESS;
 }
 
+int Tester::format_wrapper() {
+  string dev(MNT_WRAPPER_DEV_PATH);
+  if (dev.empty()) {
+    cout << "format wrapper drive DISK " << dev << " EMPTY" << endl;
+    return PART_PART_ERR;
+  }
+  string command = fs_specific_ops_->GetMkfsCommand(dev);
+  if (!verbose) {
+    command += SILENT;
+  }
+  cout << "cmd for format wrapper drive DISK " << dev << command << endl;
+  if (system(command.c_str()) != 0) {
+    return FMT_FMT_ERR;
+  }
+  return SUCCESS;
+}
+
 int Tester::test_setup() {
   return test_loader.get_instance()->setup();
 }
