@@ -460,6 +460,7 @@ static int brd_ioctl(struct block_device *bdev, fmode_t mode,
       if (brd->is_snapshot) {
         return -ENOTTY;
       }
+	  printk(KERN_WARNING DEVICE_NAME ": current driver is %s;", brd->brd_disk->disk_name);
       brd->is_writable = false;
       break;
     case COW_BRD_UNSNAPSHOT:

@@ -240,6 +240,22 @@ int Tester::getNewDiskClone(int checkpoint) {
   snapshot_path_ = new_snapshot_path;
   string command = fs_specific_ops_->GetNewUUIDCommand(new_snapshot_path);
   system(command.c_str());
+
+
+
+  if (snapshot_path_.empty()) {
+    cout << "format drive DISK " << snapshot_path_ << " EMPTY" << endl;
+    return PART_PART_ERR;
+  }
+  string command1 = fs_specific_ops_->GetMkfsCommand(snapshot_path_);
+  if (!verbose) {
+    command1 += SILENT;
+  }
+  cout << "cmd for format drive DISK " << snapshot_path_ << command1 << endl;
+  if (system(command1.c_str()) != 0) {
+    return FMT_FMT_ERR;
+  }
+  return SUCCESS;
   return 0;
 }
 
