@@ -518,6 +518,7 @@ int major_num = 0;
 static int num_disks = 1;
 static int num_snapshots = 1;
 int disk_size = DEFAULT_COW_RD_SIZE;
+static int max_part;        
 static int part_shift;
 
 module_param(num_disks, int, S_IRUGO);
@@ -528,7 +529,6 @@ MODULE_PARM_DESC(num_snapshots, "Number of ram block snapshot devices where "
 module_param(disk_size, int, S_IRUGO);
 MODULE_PARM_DESC(disk_size, "Size of each RAM disk in kbytes.");
 
-static int max_part;        // MAY BE PROBLEM
 module_param(max_part, int, S_IRUGO);
 MODULE_PARM_DESC(max_part, "Num Minors to reserve between devices");
 
@@ -642,6 +642,8 @@ static int brd_alloc(int i)
     } else {
         sprintf(disk->disk_name, "cow_ram%d", i);
     }
+	printk(KERN_WARNING DEVICE_NAME ": %s;", disk->disk_name);
+
 	set_capacity(disk, disk_size * 2);
 
 
@@ -658,17 +660,13 @@ static int brd_alloc(int i)
 	 *  otherwise fdisk will align on 1M. Regardless this call
 	 *  is harmless)
 	 */
-	blk_queue_physical_block_size(disk->queue, PAGE_SIZE);   //MAYBE PROBLEM
+	blk_queue_physical_block_size(disk->queue, PAGE_SIZE);  
 
 	/* Tell the block layer that this is not a rotational device */     //MAYBE PROBLEM
 	// blk_queue_flag_set(QUEUE_FLAG_NONROT, disk->queue);      
 	// blk_queue_flag_clear(QUEUE_FLAG_ADD_RANDOM, disk->queue);
     printk(KERN_WARNING DEVICE_NAME ": 	add_disk;");
-
-    return add_disk(disk);                                 // MAY BE PROBLEM - IN ORIGINAL ADD DISK AT THE END OF INIT
-    printk(KERN_WARNING DEVICE_NAME ": 	disk added;");
-
-	return 0;
+    return add_disk(disk);                          
 
 out_free_dev:
 	mutex_lock(&brd_devices_mutex);
@@ -681,7 +679,7 @@ out_free_dev:
 
 static void brd_probe(dev_t dev)
 {
-	brd_alloc(MINOR(dev) >> part_shift);            // MAY BE PROBLEM
+	brd_alloc(MINOR(dev) >> part_shift);            
 }
 
 static void brd_del_one(struct brd_device *brd)
